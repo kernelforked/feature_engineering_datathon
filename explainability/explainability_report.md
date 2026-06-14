@@ -6,12 +6,12 @@ This folder contains the interpretability and safety audit artifacts for the Fic
 
 ## 1. Directory Contents
 
-* **[explainability_report.md](file:///home/aspen/ProjectCollections/keggle/Datathon/explainability/explainability_report.md)**: This analysis report.
-* **[shap_beeswarm.png](file:///home/aspen/ProjectCollections/keggle/Datathon/explainability/shap_beeswarm.png)**: SHAP beeswarm plot showing the directional impact of the top 20 features.
-* **[shap_bar.png](file:///home/aspen/ProjectCollections/keggle/Datathon/explainability/shap_bar.png)**: SHAP bar plot displaying the mean absolute SHAP value (overall importance) of the top 20 features.
-* **[shap_dependence.png](file:///home/aspen/ProjectCollections/keggle/Datathon/explainability/shap_dependence.png)**: Four-panel dependency plots demonstrating non-linear relationship patterns for the top 4 features.
-* **[shap_importance.csv](file:///home/aspen/ProjectCollections/keggle/Datathon/explainability/shap_importance.csv)**: Full tabular feature importances sorted by mean absolute SHAP values.
-* **[leakage_audit.csv](file:///home/aspen/ProjectCollections/keggle/Datathon/explainability/leakage_audit.csv)**: Standalone ROC-AUC evaluation of the top 10 features to identify potential data/target leakage.
+* **[explainability_report.md](explainability_report.md)**: This analysis report.
+* **[shap_beeswarm.png](shap_beeswarm.png)**: SHAP beeswarm plot showing the directional impact of the top 20 features.
+* **[shap_bar.png](shap_bar.png)**: SHAP bar plot displaying the mean absolute SHAP value (overall importance) of the top 20 features.
+* **[shap_dependence.png](shap_dependence.png)**: Four-panel dependency plots demonstrating non-linear relationship patterns for the top 4 features.
+* **[shap_importance.csv](shap_importance.csv)**: Full tabular feature importances sorted by mean absolute SHAP values.
+* **[leakage_audit.csv](leakage_audit.csv)**: Standalone ROC-AUC evaluation of the top 10 features to identify potential data/target leakage.
 
 ---
 
