@@ -13,14 +13,14 @@
 - **in_count_[jan/feb/march/total]**: Inbound transaction counts.
 - **in_sum_[jan/feb/march/total]**: Total inbound volume.
 
-## 3. Directional & Type Recency (NEW - March Advanced)
+## 3. Directional & Type Recency (March Advanced)
 - **days_since_last_trx**: Days between last transaction (any direction) and 2024-03-31.
 - **days_since_last_outbound**: Days since last outbound transaction.
 - **days_since_last_inbound**: Days since last inbound transaction.
 - **days_since_last_P2P / days_since_last_MerchantPay / days_since_last_BillPay / days_since_last_CashOut**: Outbound recency per type.
 - **days_since_last_CashIn / days_since_received_P2P**: Inbound recency per type.
 
-## 4. Micro-Windows & Velocity (NEW - March Advanced)
+## 4. Micro-Windows & Velocity (March Advanced)
 - **out_count_last_7d / out_sum_last_7d**: Count and sum of outbound transactions in the last week of March (March 25-31).
 - **out_count_last_14d / out_sum_last_14d**: Count and sum of outbound transactions in the last 2 weeks of March (March 18-31).
 - **in_count_last_7d / in_sum_last_7d / in_count_last_14d / in_sum_last_14d**: Inbound micro-window stats.
@@ -39,7 +39,7 @@
 ## 7. Net Flow
 - **net_flow_march**: March inbound minus outbound. Negative = wallet draining.
 
-## 8. Balance Trends & Micro-Windows (NEW)
+## 8. Balance Trends & Micro-Windows
 - **mean_bal_[jan/feb/march]**: Average daily balance per month.
 - **mean_balance_last_7d_march / mean_balance_last_14d_march**: Average balance in the last week and two weeks of March.
 - **final_balance_march**: Balance on March 31.
@@ -50,3 +50,11 @@
 - **balance_stability_march**: CV (std/mean) of March balance.
 - **balance_change_jan_march / balance_change_feb_march**: Cross-month balance trends.
 - **final_to_mean_balance_ratio_march**: Final balance relative to mean balance.
+
+## 9. Domain-Specific Custom Abstractions
+- **recency_pressure**: Normalized dormancy index (days since last transaction divided by customer average transaction interval).
+- **digital_integration**: Measure of digital wallet utility (diversity of transactions scaled by digital spend ratio vs cash-out dependency).
+- **depletion_velocity**: Rate of wallet emptying and transactional slowdown.
+- **store_of_value**: Wallet trust index (mean balance relative to total inbound cash-in, scaled by balance stability).
+- **network_stickiness**: P2P social network anchoring value.
+- **wallet_strain**: Index of transaction size volatility relative to the customer's average wallet balance.
