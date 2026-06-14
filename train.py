@@ -350,50 +350,66 @@ def train_rf(X, y, X_test, cv):
 
 
 def train_linear_models(X, y, X_test, cv):
-    """Train Logistic Regression and MLP Classifier (requiring scaling)."""
-    print("\nPreparing scaled data for linear/neural models...")
-    
-    # Simple Imputer and Scaler Pipeline
-    imputer = SimpleImputer(strategy="median")
-    scaler = StandardScaler()
-    
-    # Scale inputs
-    X_imputed = imputer.fit_transform(X)
-    X_test_imputed = imputer.transform(X_test)
-    
-    X_scaled = pd.DataFrame(scaler.fit_transform(X_imputed), columns=X.columns)
-    X_test_scaled = pd.DataFrame(scaler.transform(X_test_imputed), columns=X_test.columns)
-    
+    """Train Logistic Regression and MLP Classifier (requiring scaling).
+
+    IMPORTANT: Imputer and Scaler are fit INSIDE each CV fold to prevent
+    validation leakage. This also saves ~1.2 GB peak RAM by avoiding
+    global X_scaled / X_imputed copies.
+    """
+    print("\nTraining linear/neural models (fold-internal scaling)...")
+
     # 1. Logistic Regression
     print("Training Logistic Regression...")
     lr_oof = np.zeros(len(X))
     lr_test = np.zeros(len(X_test))
     lr_models = []
-    
-    for fold, (train_idx, val_idx) in enumerate(cv.split(X_scaled, y)):
-        X_train, y_train = X_scaled.iloc[train_idx], y.iloc[train_idx]
-        X_val, y_val = X_scaled.iloc[val_idx], y.iloc[val_idx]
-        
+
+    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+        # Fit imputer and scaler on TRAIN FOLD ONLY (prevents leakage)
+        imputer = SimpleImputer(strategy="median")
+        scaler = StandardScaler()
+
+        X_train_imp = imputer.fit_transform(X.iloc[train_idx])
+        X_val_imp   = imputer.transform(X.iloc[val_idx])
+        X_test_imp  = imputer.transform(X_test)
+
+        X_train_scaled = scaler.fit_transform(X_train_imp)
+        X_val_scaled   = scaler.transform(X_val_imp)
+        X_test_scaled  = scaler.transform(X_test_imp)
+
         model = LogisticRegression(max_iter=1000, random_state=RANDOM_STATE + fold, class_weight="balanced")
-        model.fit(X_train, y_train)
-        
-        lr_oof[val_idx] = model.predict_proba(X_val)[:, 1]
+        model.fit(X_train_scaled, y.iloc[train_idx])
+
+        lr_oof[val_idx] = model.predict_proba(X_val_scaled)[:, 1]
         lr_test += model.predict_proba(X_test_scaled)[:, 1] / cv.n_splits
         lr_models.append(model)
-        
+
+        del X_train_imp, X_val_imp, X_test_imp
+        del X_train_scaled, X_val_scaled, X_test_scaled
+        gc.collect()
+
     lr_metrics = evaluate_predictions(y, lr_oof)
     print(f"Logistic Regression CV Results: AUC={lr_metrics['AUC']:.5f}, Brier={lr_metrics['Brier']:.5f}")
-    
+
     # 2. MLP Classifier
     print("Training MLP (Neural Network) Classifier...")
     mlp_oof = np.zeros(len(X))
     mlp_test = np.zeros(len(X_test))
     mlp_models = []
-    
-    for fold, (train_idx, val_idx) in enumerate(cv.split(X_scaled, y)):
-        X_train, y_train = X_scaled.iloc[train_idx], y.iloc[train_idx]
-        X_val, y_val = X_scaled.iloc[val_idx], y.iloc[val_idx]
-        
+
+    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+        # Fit imputer and scaler on TRAIN FOLD ONLY
+        imputer = SimpleImputer(strategy="median")
+        scaler = StandardScaler()
+
+        X_train_imp = imputer.fit_transform(X.iloc[train_idx])
+        X_val_imp   = imputer.transform(X.iloc[val_idx])
+        X_test_imp  = imputer.transform(X_test)
+
+        X_train_scaled = scaler.fit_transform(X_train_imp)
+        X_val_scaled   = scaler.transform(X_val_imp)
+        X_test_scaled  = scaler.transform(X_test_imp)
+
         # Deeper neural network for PC version
         model = MLPClassifier(
             hidden_layer_sizes=(128, 64),
@@ -403,15 +419,19 @@ def train_linear_models(X, y, X_test, cv):
             random_state=RANDOM_STATE + fold,
             early_stopping=True
         )
-        model.fit(X_train, y_train)
-        
-        mlp_oof[val_idx] = model.predict_proba(X_val)[:, 1]
+        model.fit(X_train_scaled, y.iloc[train_idx])
+
+        mlp_oof[val_idx] = model.predict_proba(X_val_scaled)[:, 1]
         mlp_test += model.predict_proba(X_test_scaled)[:, 1] / cv.n_splits
         mlp_models.append(model)
-        
+
+        del X_train_imp, X_val_imp, X_test_imp
+        del X_train_scaled, X_val_scaled, X_test_scaled
+        gc.collect()
+
     mlp_metrics = evaluate_predictions(y, mlp_oof)
     print(f"MLP CV Results: AUC={mlp_metrics['AUC']:.5f}, Brier={mlp_metrics['Brier']:.5f}")
-    
+
     return lr_oof, lr_test, lr_models, mlp_oof, mlp_test, mlp_models
 
 
