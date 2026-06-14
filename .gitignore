@@ -23,3 +23,9 @@ __pycache__/
 Thumbs.db
 feature_store/
 processed_data/
+
+# Environment and run cache files
+venv/
+catboost_info/
+pipeline.log
+

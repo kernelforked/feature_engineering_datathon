@@ -50,7 +50,7 @@ def run_shap_analysis():
     else:
         shap_vals = shap_values
     
-    os.makedirs("./plots", exist_ok=True)
+    os.makedirs("./explainability", exist_ok=True)
     
     # 1. Beeswarm Summary Plot
     print("Generating SHAP beeswarm summary plot...")
@@ -58,9 +58,9 @@ def run_shap_analysis():
     shap.summary_plot(shap_vals, X_sample, show=False, max_display=20)
     plt.title("SHAP Feature Importance (Top 20)", fontsize=14)
     plt.tight_layout()
-    plt.savefig("./plots/shap_beeswarm.png", dpi=300, bbox_inches="tight")
+    plt.savefig("./explainability/shap_beeswarm.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print("  Saved: plots/shap_beeswarm.png")
+    print("  Saved: explainability/shap_beeswarm.png")
     
     # 2. Bar Summary Plot
     print("Generating SHAP bar importance plot...")
@@ -68,9 +68,9 @@ def run_shap_analysis():
     shap.summary_plot(shap_vals, X_sample, plot_type="bar", show=False, max_display=20)
     plt.title("Mean |SHAP| Feature Importance (Top 20)", fontsize=14)
     plt.tight_layout()
-    plt.savefig("./plots/shap_bar.png", dpi=300, bbox_inches="tight")
+    plt.savefig("./explainability/shap_bar.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print("  Saved: plots/shap_bar.png")
+    print("  Saved: explainability/shap_bar.png")
     
     # 3. Top 4 Dependency Plots
     print("Generating SHAP dependency plots for top features...")
@@ -85,9 +85,9 @@ def run_shap_analysis():
         ax.set_title(f"SHAP Dependence: {feat}", fontsize=11)
     plt.suptitle("SHAP Dependency Plots — Top 4 Features", fontsize=14, y=1.02)
     plt.tight_layout()
-    plt.savefig("./plots/shap_dependence.png", dpi=300, bbox_inches="tight")
+    plt.savefig("./explainability/shap_dependence.png", dpi=300, bbox_inches="tight")
     plt.close()
-    print("  Saved: plots/shap_dependence.png")
+    print("  Saved: explainability/shap_dependence.png")
     
     # 4. Feature Importance Table
     importance_df = pd.DataFrame({
@@ -97,7 +97,7 @@ def run_shap_analysis():
     
     print("\n=== TOP 15 FEATURES BY MEAN |SHAP| ===")
     print(importance_df.head(15).to_string(index=False))
-    importance_df.to_csv("./plots/shap_importance.csv", index=False)
+    importance_df.to_csv("./explainability/shap_importance.csv", index=False)
     
     # 5. Data Leakage Audit
     print("\n=== DATA LEAKAGE AUDIT ===")
@@ -114,7 +114,7 @@ def run_shap_analysis():
         print(f"  {feat}: standalone AUC = {auc:.4f} {flag}")
     
     leakage_df = pd.DataFrame(leakage_risk)
-    leakage_df.to_csv("./plots/leakage_audit.csv", index=False)
+    leakage_df.to_csv("./explainability/leakage_audit.csv", index=False)
     
     # Check if any single feature has AUC > 0.95 (potential leakage)
     suspicious = [r for r in leakage_risk if r["standalone_AUC"] > 0.95]

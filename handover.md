@@ -79,7 +79,7 @@ Optimizes rank-based predictions and maps them to clean probabilities:
 1. **Model Weights**: Base models are weighted by their OOF AUC squared:
    $$W_i = \frac{\text{AUC}_i^2}{\sum \text{AUC}_j^2}$$
 2. **Rank Averaging**: Converts individual model test probabilities into rank percentiles (0 to 1) before averaging, directly preserving ROC-AUC ranking and removing calibration variance.
-3. **Probability Calibration**: Uses **Isotonic Regression** on OOF ranks to map blended percentiles back to valid class probabilities.
+3. **Probability Calibration**: Uses **Logistic Regression (Platt Scaling)** on OOF ranks to map blended percentiles back to valid class probabilities, ensuring the function is strictly monotonic and preserves continuous ranking granularity.
 4. **Cost-Sensitive Thresholding**: Computes optimal decision thresholds minimizing the Datathon's cost function ($5 \times \text{False Negative} + 1 \times \text{False Positive}$).
 
 ---

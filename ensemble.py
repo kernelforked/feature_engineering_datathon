@@ -9,7 +9,6 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
-from sklearn.isotonic import IsotonicRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score, brier_score_loss, f1_score
 from scipy.stats import rankdata
@@ -54,33 +53,43 @@ def build_stacking_ensemble():
             "test": test[col.replace('_oof', '_test')].values
         }
 
-    # 2. Stacking Meta-Classifier (Logistic Regression)
+    import lightgbm as lgb
+    
+    # 2. Stacking Meta-Classifier (LightGBM)
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     meta_oof = np.zeros(len(X_stack))
     meta_test = np.zeros(len(X_test_stack))
     
-    print("\nTraining Stacking Meta-Classifier (Logistic Regression)...")
+    print("\nTraining Stacking Meta-Classifier (LightGBM)...")
     for fold, (train_idx, val_idx) in enumerate(cv.split(X_stack, y)):
         X_train, y_train = X_stack[train_idx], y[train_idx]
-        X_val = X_stack[val_idx]
+        X_val, y_val = X_stack[val_idx], y[val_idx]
         
-        meta_model = LogisticRegression(max_iter=1000, random_state=42 + fold)
-        meta_model.fit(X_train, y_train)
+        meta_model = lgb.LGBMClassifier(
+            n_estimators=200, 
+            learning_rate=0.01, 
+            max_depth=3, 
+            num_leaves=7, 
+            subsample=0.8, 
+            colsample_bytree=0.8, 
+            random_state=42 + fold, 
+            n_jobs=-1,
+            verbose=-1
+        )
+        meta_model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            callbacks=[lgb.early_stopping(50, verbose=False)]
+        )
         
         meta_oof[val_idx] = meta_model.predict_proba(X_val)[:, 1]
         meta_test += meta_model.predict_proba(X_test_stack)[:, 1] / cv.n_splits
     
-    # Calibrate Stacking
-    iso_meta = IsotonicRegression(out_of_bounds="clip")
-    iso_meta.fit(meta_oof, y)
-    calibrated_meta_oof = iso_meta.predict(meta_oof)
-    calibrated_meta_test = iso_meta.predict(meta_test)
-    
-    results["Stacking (Calibrated LR)"] = {
-        "auc": roc_auc_score(y, calibrated_meta_oof),
-        "brier": brier_score_loss(y, calibrated_meta_oof),
-        "oof": calibrated_meta_oof,
-        "test": calibrated_meta_test
+    results["Stacking (LightGBM)"] = {
+        "auc": roc_auc_score(y, meta_oof),
+        "brier": brier_score_loss(y, meta_oof),
+        "oof": meta_oof,
+        "test": meta_test
     }
     
     # 3. Simple Weighted Average Ensemble
@@ -99,6 +108,19 @@ def build_stacking_ensemble():
         "brier": brier_score_loss(y, weighted_oof),
         "oof": weighted_oof,
         "test": weighted_test
+    }
+    
+    # Calibrate Weighted Average using Logistic Regression (Platt Scaling) to preserve ranking order
+    lr_cal_w = LogisticRegression(random_state=42)
+    lr_cal_w.fit(weighted_oof.reshape(-1, 1), y)
+    calibrated_weighted_oof = lr_cal_w.predict_proba(weighted_oof.reshape(-1, 1))[:, 1]
+    calibrated_weighted_test = lr_cal_w.predict_proba(weighted_test.reshape(-1, 1))[:, 1]
+    
+    results["Weighted Average (Logistic Calibrated)"] = {
+        "auc": roc_auc_score(y, calibrated_weighted_oof),
+        "brier": brier_score_loss(y, calibrated_weighted_oof),
+        "oof": calibrated_weighted_oof,
+        "test": calibrated_weighted_test
     }
 
     # 4. Rank-Average Blending (Kaggle Standard)
@@ -119,13 +141,13 @@ def build_stacking_ensemble():
         rank_oof += w * r_oof
         rank_test += w * r_test
         
-    # Calibrate Rank-Average Blend using Isotonic Regression to map back to probabilities
-    iso_rank = IsotonicRegression(out_of_bounds="clip")
-    iso_rank.fit(rank_oof, y)
-    calibrated_rank_oof = iso_rank.predict(rank_oof)
-    calibrated_rank_test = iso_rank.predict(rank_test)
+    # Calibrate Rank-Average Blend using Logistic Regression (Platt Scaling) to preserve ranking order
+    lr_cal = LogisticRegression(random_state=42)
+    lr_cal.fit(rank_oof.reshape(-1, 1), y)
+    calibrated_rank_oof = lr_cal.predict_proba(rank_oof.reshape(-1, 1))[:, 1]
+    calibrated_rank_test = lr_cal.predict_proba(rank_test.reshape(-1, 1))[:, 1]
     
-    results["Rank-Average Blend (Calibrated)"] = {
+    results["Rank-Average Blend (Logistic Calibrated)"] = {
         "auc": roc_auc_score(y, calibrated_rank_oof),
         "brier": brier_score_loss(y, calibrated_rank_oof),
         "oof": calibrated_rank_oof,

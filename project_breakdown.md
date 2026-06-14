@@ -80,7 +80,7 @@ This document provides a detailed breakdown of all files and scripts in the Fict
   1. **Stacking Meta-Classifier**: Trains a Logistic Regression meta-model over stacked base OOF predictions using 5-fold CV.
   2. **Weighted Average**: A baseline soft-voting ensemble weighted by the base model validation AUCs.
   3. **Rank-Average Blending**: Map individual models' predictions to relative percentiles (ranks) before averaging. This is mathematically optimal for ROC-AUC as it preserves ordinal relationships and removes model-specific calibration differences.
-  4. **Probability Calibration**: Fits an `IsotonicRegression` wrapper on the rank-average blended values to output valid class probabilities.
+  4. **Probability Calibration**: Fits a strictly monotonic `LogisticRegression` (Platt Scaling) wrapper on the rank-average blended values to output valid, smooth class probabilities.
   5. **Cost-Sensitive Decision Threshold**: Computes an optimal decision threshold targeting the competition cost matrix ($5 \times FN + 1 \times FP$).
 * **Output**: Generates `predictions.csv` and `test_probabilities.csv`.
 
@@ -162,7 +162,7 @@ flowchart TD
 
     subgraph Ensembling (ensemble.py)
         U[Rank-Average Blending]
-        V[Isotonic Calibration]
+        V[Logistic Calibration]
         W[Cost-Sensitive Thresholding]
         X[predictions.csv]
         

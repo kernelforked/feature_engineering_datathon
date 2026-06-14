@@ -672,7 +672,7 @@ This is only needed on machines with < 4 GB available RAM.
 │                                                                 │
 │  Load OOF + test predictions (~50 MB total)                     │
 │  Stacking meta-learner + Rank-Average Blend                     │
-│  Isotonic calibration + cost-sensitive thresholding             │
+│  Logistic calibration + cost-sensitive thresholding             │
 │                                                                 │
 │  Output: predictions.csv                                        │
 │  Peak RAM: ~100 MB                                              │
@@ -947,7 +947,7 @@ FOR each month in [jan, feb, march]:
 8.3  Compute individual base model AUCs
 8.4  Train stacking meta-classifier (5-fold LR on OOF columns)
 8.5  Compute Rank-Average Blend (AUC²-weighted)
-8.6  Calibrate best method via IsotonicRegression
+8.6  Calibrate best method via LogisticRegression (Platt Scaling)
 8.7  Sweep cost-sensitive threshold (5×FN + 1×FP)
 8.8  Write → predictions.csv
 ```

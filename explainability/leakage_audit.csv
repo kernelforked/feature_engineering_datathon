@@ -1,0 +1,11 @@
+feature,standalone_AUC,status
+out_count_march,0.02473180543153755,✓ OK
+march_activity_share,0.11489045828034382,✓ OK
+out_count_total,0.060117974943853666,✓ OK
+balance_trend_last_14d_march,0.4912487485456071,✓ OK
+zero_balance_days_last_7d_march,0.26411126444246014,✓ OK
+trx_count_decay_jan_march,0.15959267978100675,✓ OK
+recency_pressure,0.060117974943853666,✓ OK
+mean_balance_last_7d_march,0.6560458550928557,✓ OK
+final_to_mean_balance_ratio_march,0.6540357713017833,✓ OK
+balance_stability_march,0.1587614434793589,✓ OK

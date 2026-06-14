@@ -8,6 +8,10 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_score, brier_score_loss, roc_curve
 import lightgbm as lgb
 import xgboost as xgb
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 
 # Try importing CatBoost
 try:
@@ -162,8 +166,8 @@ def train_lgb(X, y, X_test, cv, class_weight=None):
             "objective": "binary",
             "metric": "auc",
             "boosting_type": "gbdt",
-            "n_estimators": 1500,
-            "learning_rate": 0.03,
+            "n_estimators": 3000,
+            "learning_rate": 0.01,
             "num_leaves": 63,
             "max_depth": 8,
             "min_child_samples": 30,
@@ -215,8 +219,8 @@ def train_xgb(X, y, X_test, cv, class_weight=None):
         params = {
             "objective": "binary:logistic",
             "eval_metric": "auc",
-            "n_estimators": 1500,
-            "learning_rate": 0.03,
+            "n_estimators": 3000,
+            "learning_rate": 0.01,
             "max_depth": 7,
             "subsample": 0.8,
             "colsample_bytree": 0.8,
@@ -268,8 +272,8 @@ def train_catboost(X, y, X_test, cv, class_weight=None):
         X_val, y_val = X.iloc[val_idx], y.iloc[val_idx]
         
         params = {
-            "iterations": 1500,
-            "learning_rate": 0.03,
+            "iterations": 3000,
+            "learning_rate": 0.01,
             "depth": 7,
             "eval_metric": "AUC",
             "random_seed": RANDOM_STATE + fold,
@@ -299,6 +303,37 @@ def train_catboost(X, y, X_test, cv, class_weight=None):
     return oof_preds, test_preds, models
 
 
+def train_mlp(X, y, X_test, cv):
+    """Train a small MLP with Imputation and Scaling."""
+    print("\nTraining MLPClassifier...")
+    oof_preds = np.zeros(len(X))
+    test_preds = np.zeros(len(X_test))
+    models = []
+    
+    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+        X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+        X_val, y_val = X.iloc[val_idx], y.iloc[val_idx]
+        
+        # Simple pipeline for MLP
+        model = Pipeline([
+            ('imputer', SimpleImputer(strategy='median')),
+            ('scaler', StandardScaler()),
+            ('mlp', MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=200, 
+                                  random_state=RANDOM_STATE + fold, early_stopping=True, 
+                                  validation_fraction=0.1, n_iter_no_change=10, 
+                                  batch_size=1024))
+        ])
+        
+        model.fit(X_train, y_train)
+        
+        val_preds = model.predict_proba(X_val)[:, 1]
+        oof_preds[val_idx] = val_preds
+        test_preds += model.predict_proba(X_test)[:, 1] / cv.n_splits
+        models.append(model)
+        
+    metrics = evaluate_predictions(y, oof_preds)
+    print(f"MLP CV Results: AUC={metrics['AUC']:.5f}, Brier={metrics['Brier']:.5f}")
+    return oof_preds, test_preds, models
 
 
 
@@ -343,7 +378,7 @@ def main():
     # Removed: MLP Classifier (CPU-only, AUC=0.97912, degrades ensemble)
     # Removed: Logistic Regression (AUC=0.97808, degrades ensemble)
     # Kept: LightGBM, XGBoost, CatBoost (all GPU-capable, AUC>0.9816)
-    print("\n=== Training GBDT Model Zoo (LightGBM + XGBoost + CatBoost) ===")
+    print("\n=== Training GBDT + MLP Model Zoo ===")
     
     lgb_oof, lgb_test, lgb_models = train_lgb(X, y, X_test, cv, class_weight="balanced")
     gc.collect()
@@ -356,11 +391,15 @@ def main():
         gc.collect()
     else:
         cat_oof, cat_test, cat_models = None, None, None
+        
+    mlp_oof, mlp_test, mlp_models = train_mlp(X, y, X_test, cv)
+    gc.collect()
     
     # Plot and save curves
     oof_dict = {
         "LightGBM": lgb_oof,
         "XGBoost": xgb_oof,
+        "MLP": mlp_oof
     }
     if CATBOOST_AVAILABLE:
         oof_dict["CatBoost"] = cat_oof
@@ -375,6 +414,7 @@ def main():
         "CHURN": y,
         "lgb_oof": lgb_oof,
         "xgb_oof": xgb_oof,
+        "mlp_oof": mlp_oof,
     }
     if CATBOOST_AVAILABLE:
         oof_payload["cat_oof"] = cat_oof
@@ -386,6 +426,7 @@ def main():
         "ACCOUNT_ID": test_account_ids,
         "lgb_test": lgb_test,
         "xgb_test": xgb_test,
+        "mlp_test": mlp_test,
     }
     if CATBOOST_AVAILABLE:
         test_payload["cat_test"] = cat_test
@@ -396,6 +437,7 @@ def main():
     os.makedirs("./models", exist_ok=True)
     joblib.dump(lgb_models[0], "./models/lgb_model.pkl")
     joblib.dump(xgb_models[0], "./models/xgb_model.pkl")
+    joblib.dump(mlp_models[0], "./models/mlp_model.pkl")
     if CATBOOST_AVAILABLE:
         joblib.dump(cat_models[0], "./models/cat_model.pkl")
         

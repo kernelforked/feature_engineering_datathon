@@ -153,7 +153,7 @@ The project processes, models, and scores this dataset through six key actions:
 ### 4. Kaggle-Optimal Blending
 * Predictions from the model zoo are combined using **Rank-Average Blending**, converting probabilities to percentiles (ranks 0–1) weighted by the squared cross-validation AUC of the models:
   $$W_i = \frac{\text{AUC}_i^2}{\sum \text{AUC}_j^2}$$
-* This rank blend is mapped back to calibrated probabilities by fitting an `IsotonicRegression` curve on the validation ranks.
+* This rank blend is mapped back to calibrated probabilities by fitting a strictly monotonic `LogisticRegression` curve (Platt Scaling) on the validation ranks to prevent granularity loss.
 
 ### 5. Cost-Sensitive Optimization
 * The final probabilities are evaluated against a business loss function where missing a churner costs $5\times$ more than a false alarm:
