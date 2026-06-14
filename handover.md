@@ -62,12 +62,12 @@ Generates 130 features across the following domains:
 - **Temporal Decay**: Activity decay rate between Jan-Feb, Feb-March, and Jan-March.
 
 ### Step 2: Model Zoo Training (`train.py`)
-Trains five diverse base classifiers using **10-Fold Stratified Cross-Validation**:
+Trains three GPU-accelerated GBDT classifiers using **10-Fold Stratified Cross-Validation**:
 1. **LightGBM**: Denser trees (max depth 8, num leaves 63) with balanced class weights.
 2. **XGBoost**: Tree depth 7 with balanced weights, `early_stopping_rounds=100` to prevent overfitting, and `"tree_method": "hist"`.
 3. **CatBoost** (Optional): GPU-enabled if installed; falls back gracefully.
-4. **Random Forest**: Out-of-bag bagging baseline (150 trees, depth 12).
-5. **Logistic Regression & MLP Classifier**: Trained on scaled, imputed features.
+
+> **Iteration 2 Pruning (Empirical):** Random Forest (AUC=0.98059), MLP (AUC=0.97912), and Logistic Regression (AUC=0.97808) were removed after empirical analysis showed they degrade the ensemble AUC from 0.9820 to 0.9814. All three are CPU-only and were the primary training bottleneck.
 
 **GPU Acceleration Support**:
 - Dynamically detects PyTorch CUDA availability.
@@ -128,13 +128,10 @@ Optimizes rank-based predictions and maps them to clean probabilities:
 
 | Model | AUC | Brier Score |
 |---|---|---|
-| LightGBM | 0.97552 | 0.07689 |
-| XGBoost | 0.97452 | 0.17792 |
-| Random Forest | 0.96686 | 0.03468 |
-| Logistic Regression | 0.97551 | 0.05278 |
-| MLP Classifier | 0.96169 | 0.03426 |
-| **Rank-Average Blend (Calibrated)** | **0.98334** | **0.03084** |
-| Stacking (Calibrated) | 0.98202 | 0.03120 |
+| LightGBM | 0.98191 | — |
+| XGBoost | 0.98189 | — |
+| CatBoost | 0.98169 | — |
+| **Rank-Average Blend (GBDT-Only, Calibrated)** | **0.98196** | **—** |
 
 ---
 

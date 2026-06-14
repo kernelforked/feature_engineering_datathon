@@ -44,8 +44,8 @@ def main():
     # Step 1: Feature Engineering (includes March transactions now)
     run_step("features.py", "Feature Engineering (Jan+Feb+March)")
     
-    # Step 2: Model Training (5 models x 5 folds)
-    run_step("train.py", "Model Zoo Training (LGB/XGB/RF/LR/MLP)")
+    # Step 2: Model Training (3 GBDT models x 10 folds)
+    run_step("train.py", "GBDT Model Zoo Training (LGB/XGB/CatBoost)")
     
     # Step 3: Stacking Ensemble + Calibration + Submission
     run_step("ensemble.py", "Stacking Ensemble + Calibration → predictions.csv")

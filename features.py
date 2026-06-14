@@ -154,7 +154,7 @@ def stream_transaction_features(n, id_to_int):
         out_count  = np.zeros(n, dtype=np.int64)
         out_sum    = np.zeros(n, dtype=np.float64)
         out_sum_sq = np.zeros(n, dtype=np.float64)
-        out_max_val = np.full(n, np.nan, dtype=np.float64)
+        out_max_val = np.full(n, -np.inf, dtype=np.float64)
 
         # ─── Monthly accumulators (inbound / DST side) ───
         in_count = np.zeros(n, dtype=np.int64)
@@ -313,7 +313,7 @@ def stream_transaction_features(n, id_to_int):
         monthly[f"out_std_{month}"] = np.sqrt(variance)
 
         # Max (replace NaN with 0 for accounts with no transactions)
-        monthly[f"out_max_{month}"] = np.where(np.isnan(out_max_val), 0.0, out_max_val)
+        monthly[f"out_max_{month}"] = np.where(np.isinf(out_max_val), 0.0, out_max_val)
 
         monthly[f"in_count_{month}"] = in_count
         monthly[f"in_sum_{month}"]   = in_sum

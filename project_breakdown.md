@@ -10,7 +10,7 @@ This document provides a detailed breakdown of all files and scripts in the Fict
 /home/aspen/ProjectCollections/keggle/Datathon/
 ├── bkash-presents-nsucec-datathon/       # Raw dataset containing 'public/'
 │   └── public/
-│       ├── dayend_balance/               # Daily wallet balance parquets (Jan, Feb, March)
+│       ├── dayend_balance/               # Daily wallet balance parquets (Jan, Feb, March) 
 │       ├── transactions/                 # Monthly transaction parquets (Jan, Feb, March)
 │       ├── kyc.parquet                   # Customer demographic metadata
 │       ├── train_labels.csv              # Customer IDs and churn labels
@@ -67,8 +67,7 @@ This document provides a detailed breakdown of all files and scripts in the Fict
   1. **LightGBM**: Tuned GBDT with deeper configurations (`num_leaves=63`, `max_depth=8`) and balanced class weighting.
   2. **XGBoost**: Histogram-based tree method with early stopping to prevent overfitting.
   3. **CatBoost**: GPU-enabled GBDT classifier (falls back to CPU if not installed).
-  4. **Random Forest**: 150 trees of depth 12 acting as a robust bagging baseline.
-  5. **Logistic Regression** and **MLP Classifier (Neural Network)**: Multilayer perceptron (128-64 hidden nodes) trained on scaled and imputed features.
+  > *Note: Random Forest, Logistic Regression, and MLP were pruned in Iteration 2 after empirical analysis showed they degrade ensemble AUC (0.9814 with all 6 models vs 0.9820 with GBDTs only).*
 * **Key Functions**:
   * `get_xgb_device_params()` / `get_lgb_device_params()` / `get_catboost_device_params()`: Queries device properties (PyTorch CUDA or dummy trainings) to automatically toggle GPU acceleration or CPU thread counts (`n_jobs=-1`).
   * `train_***(...)`: CV loops capturing Out-Of-Fold (OOF) predictions and test predictions.
@@ -146,11 +145,9 @@ flowchart TD
         M[LightGBM]
         N[XGBoost]
         O[CatBoost]
-        P[Random Forest]
-        Q[Linear & MLP Models]
         
         J & K --> L
-        L --> M & N & O & P & Q
+        L --> M & N & O
     end
 
     subgraph Intermediate Outputs
@@ -158,9 +155,9 @@ flowchart TD
         S[(predictions/test_predictions.parquet)]
         T[plots/roc_curves.png]
         
-        M & N & O & P & Q --> R
-        M & N & O & P & Q --> S
-        M & N & O & P & Q --> T
+        M & N & O --> R
+        M & N & O --> S
+        M & N & O --> T
     end
 
     subgraph Ensembling (ensemble.py)

@@ -129,7 +129,7 @@ The project processes, models, and scores this dataset through six key actions:
 [Stratified 10-Fold CV Splits]
     │
     ▼ (4. Classifier Zoo)
-[LGBM / XGBoost / CatBoost / Random Forest / LR / MLP]
+[LGBM / XGBoost / CatBoost]
     │
     ▼ (5. Blending & Probability Correction)
 [AUC-Squared Rank Averaging + Isotonic Regression]

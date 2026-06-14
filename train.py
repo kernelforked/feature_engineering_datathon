@@ -5,12 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
 from sklearn.metrics import roc_auc_score, f1_score, recall_score, precision_score, brier_score_loss, roc_curve
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.neural_network import MLPClassifier
 import lightgbm as lgb
 import xgboost as xgb
 
@@ -77,31 +72,17 @@ def get_xgb_device_params():
         if not torch.cuda.is_available():
             print("  [CPU] PyTorch detected no CUDA GPU. Using CPU for XGBoost.")
             return {"n_jobs": -1, "tree_method": "hist"}
-        else:
-            print("  [GPU] CUDA detected. Enabling GPU for XGBoost.")
-            return {"device": "cuda", "tree_method": "hist"}
     except ImportError:
         pass
     
-    try:
-        # Dummy classifier test
-        clf = xgb.XGBClassifier(device="cuda", n_estimators=1)
-        clf.fit(np.random.rand(10, 2), np.random.randint(0, 2, 10))
-        print("  [GPU] XGBoost CUDA training test passed. Enabling GPU.")
-        return {"device": "cuda", "tree_method": "hist"}
-    except Exception:
-        pass
-        
     try:
         clf = xgb.XGBClassifier(tree_method="gpu_hist", n_estimators=1)
         clf.fit(np.random.rand(10, 2), np.random.randint(0, 2, 10))
         print("  [GPU] XGBoost gpu_hist test passed. Enabling GPU.")
         return {"tree_method": "gpu_hist"}
-    except Exception:
-        pass
-        
-    print("  [CPU] No GPU detected for XGBoost. Using CPU.")
-    return {"n_jobs": -1, "tree_method": "hist"}
+    except Exception as e:
+        print(f"  [CPU] XGBoost GPU test failed ({e}). Using CPU.")
+        return {"n_jobs": -1, "tree_method": "hist"}
 
 
 def get_lgb_device_params():
@@ -318,121 +299,7 @@ def train_catboost(X, y, X_test, cv, class_weight=None):
     return oof_preds, test_preds, models
 
 
-def train_rf(X, y, X_test, cv):
-    """Train Random Forest with Stratified CV."""
-    print("\nTraining Random Forest...")
-    oof_preds = np.zeros(len(X))
-    test_preds = np.zeros(len(X_test))
-    models = []
-    
-    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
-        X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
-        X_val, y_val = X.iloc[val_idx], y.iloc[val_idx]
-        
-        # Deeper forest since we are in high resource mode
-        model = RandomForestClassifier(
-            n_estimators=150,
-            max_depth=12,
-            random_state=RANDOM_STATE + fold,
-            n_jobs=-1,
-            class_weight="balanced"
-        )
-        model.fit(X_train, y_train)
-        
-        val_preds = model.predict_proba(X_val)[:, 1]
-        oof_preds[val_idx] = val_preds
-        test_preds += model.predict_proba(X_test)[:, 1] / cv.n_splits
-        models.append(model)
-        
-    metrics = evaluate_predictions(y, oof_preds)
-    print(f"Random Forest CV Results: AUC={metrics['AUC']:.5f}, Brier={metrics['Brier']:.5f}")
-    return oof_preds, test_preds, models
 
-
-def train_linear_models(X, y, X_test, cv):
-    """Train Logistic Regression and MLP Classifier (requiring scaling).
-
-    IMPORTANT: Imputer and Scaler are fit INSIDE each CV fold to prevent
-    validation leakage. This also saves ~1.2 GB peak RAM by avoiding
-    global X_scaled / X_imputed copies.
-    """
-    print("\nTraining linear/neural models (fold-internal scaling)...")
-
-    # 1. Logistic Regression
-    print("Training Logistic Regression...")
-    lr_oof = np.zeros(len(X))
-    lr_test = np.zeros(len(X_test))
-    lr_models = []
-
-    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
-        # Fit imputer and scaler on TRAIN FOLD ONLY (prevents leakage)
-        imputer = SimpleImputer(strategy="median")
-        scaler = StandardScaler()
-
-        X_train_imp = imputer.fit_transform(X.iloc[train_idx])
-        X_val_imp   = imputer.transform(X.iloc[val_idx])
-        X_test_imp  = imputer.transform(X_test)
-
-        X_train_scaled = scaler.fit_transform(X_train_imp)
-        X_val_scaled   = scaler.transform(X_val_imp)
-        X_test_scaled  = scaler.transform(X_test_imp)
-
-        model = LogisticRegression(max_iter=1000, random_state=RANDOM_STATE + fold, class_weight="balanced")
-        model.fit(X_train_scaled, y.iloc[train_idx])
-
-        lr_oof[val_idx] = model.predict_proba(X_val_scaled)[:, 1]
-        lr_test += model.predict_proba(X_test_scaled)[:, 1] / cv.n_splits
-        lr_models.append(model)
-
-        del X_train_imp, X_val_imp, X_test_imp
-        del X_train_scaled, X_val_scaled, X_test_scaled
-        gc.collect()
-
-    lr_metrics = evaluate_predictions(y, lr_oof)
-    print(f"Logistic Regression CV Results: AUC={lr_metrics['AUC']:.5f}, Brier={lr_metrics['Brier']:.5f}")
-
-    # 2. MLP Classifier
-    print("Training MLP (Neural Network) Classifier...")
-    mlp_oof = np.zeros(len(X))
-    mlp_test = np.zeros(len(X_test))
-    mlp_models = []
-
-    for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
-        # Fit imputer and scaler on TRAIN FOLD ONLY
-        imputer = SimpleImputer(strategy="median")
-        scaler = StandardScaler()
-
-        X_train_imp = imputer.fit_transform(X.iloc[train_idx])
-        X_val_imp   = imputer.transform(X.iloc[val_idx])
-        X_test_imp  = imputer.transform(X_test)
-
-        X_train_scaled = scaler.fit_transform(X_train_imp)
-        X_val_scaled   = scaler.transform(X_val_imp)
-        X_test_scaled  = scaler.transform(X_test_imp)
-
-        # Deeper neural network for PC version
-        model = MLPClassifier(
-            hidden_layer_sizes=(128, 64),
-            activation="relu",
-            max_iter=150,
-            alpha=0.001,
-            random_state=RANDOM_STATE + fold,
-            early_stopping=True
-        )
-        model.fit(X_train_scaled, y.iloc[train_idx])
-
-        mlp_oof[val_idx] = model.predict_proba(X_val_scaled)[:, 1]
-        mlp_test += model.predict_proba(X_test_scaled)[:, 1] / cv.n_splits
-        mlp_models.append(model)
-
-        del X_train_imp, X_val_imp, X_test_imp
-        del X_train_scaled, X_val_scaled, X_test_scaled
-        gc.collect()
-
-    mlp_metrics = evaluate_predictions(y, mlp_oof)
-    print(f"MLP CV Results: AUC={mlp_metrics['AUC']:.5f}, Brier={mlp_metrics['Brier']:.5f}")
-
-    return lr_oof, lr_test, lr_models, mlp_oof, mlp_test, mlp_models
 
 
 def plot_curves(y_true, oof_dict):
@@ -471,8 +338,12 @@ def main():
     print(f"Using {N_SPLITS}-Fold Stratified Cross-Validation.")
     cv = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
     
-    # Train Model Zoo — sequential with memory cleanup between models
-    print("\n=== Training Model Zoo ===")
+    # Train Model Zoo — GBDT-only (Iteration 2: pruned via empirical AUC analysis)
+    # Removed: Random Forest (CPU-only, AUC=0.98059, degrades ensemble)
+    # Removed: MLP Classifier (CPU-only, AUC=0.97912, degrades ensemble)
+    # Removed: Logistic Regression (AUC=0.97808, degrades ensemble)
+    # Kept: LightGBM, XGBoost, CatBoost (all GPU-capable, AUC>0.9816)
+    print("\n=== Training GBDT Model Zoo (LightGBM + XGBoost + CatBoost) ===")
     
     lgb_oof, lgb_test, lgb_models = train_lgb(X, y, X_test, cv, class_weight="balanced")
     gc.collect()
@@ -485,20 +356,11 @@ def main():
         gc.collect()
     else:
         cat_oof, cat_test, cat_models = None, None, None
-        
-    rf_oof, rf_test, rf_models = train_rf(X, y, X_test, cv)
-    gc.collect()
-    
-    lr_oof, lr_test, lr_models, mlp_oof, mlp_test, mlp_models = train_linear_models(X, y, X_test, cv)
-    gc.collect()
     
     # Plot and save curves
     oof_dict = {
         "LightGBM": lgb_oof,
         "XGBoost": xgb_oof,
-        "Random Forest": rf_oof,
-        "Logistic Regression": lr_oof,
-        "MLP Classifier": mlp_oof
     }
     if CATBOOST_AVAILABLE:
         oof_dict["CatBoost"] = cat_oof
@@ -513,9 +375,6 @@ def main():
         "CHURN": y,
         "lgb_oof": lgb_oof,
         "xgb_oof": xgb_oof,
-        "rf_oof": rf_oof,
-        "lr_oof": lr_oof,
-        "mlp_oof": mlp_oof
     }
     if CATBOOST_AVAILABLE:
         oof_payload["cat_oof"] = cat_oof
@@ -527,9 +386,6 @@ def main():
         "ACCOUNT_ID": test_account_ids,
         "lgb_test": lgb_test,
         "xgb_test": xgb_test,
-        "rf_test": rf_test,
-        "lr_test": lr_test,
-        "mlp_test": mlp_test
     }
     if CATBOOST_AVAILABLE:
         test_payload["cat_test"] = cat_test
